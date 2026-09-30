@@ -1,6 +1,14 @@
-# Plasmo Musicshare 1.2.14
+# Plasmo Musicshare 1.2.15
 
-Windows 客户端附属模组：Fabric Minecraft 1.21.11、Plasmo Voice 2.1.17，可选 Talking Heads 1.1.3。TarsosDSP core 2.5 已直接内置，无需额外安装 TarsosDSP、Soundboard 或 soundboard-core。
+Windows 客户端附属模组：Fabric Minecraft 1.21.11、Plasmo Voice 2.x（最低 2.1.17），可选 Talking Heads 1.1.3。TarsosDSP core 2.5 已直接内置，无需额外安装 TarsosDSP、Soundboard 或 soundboard-core。
+
+## Plasmo Voice 更新兼容
+
+1.2.15 不再锁死 Plasmo Voice 的单个版本号，允许 2.1.17 及以上的 2.x 版本。已针对 2.1.17 和 2.2.0-beta.1 验证；同一份 JAR 可以搭配这两个版本。2.2 的玩家图标方法将参数从 LivingEntity 扩展为 Entity，本版同时支持两种签名。
+
+加载前会检查采集、编码与结束发包方法、试听注入位置、设置页以及本地玩家图标接口，并检查本模组直接使用的 Plasmo Voice/config/slib 类型和方法引用。检查通过才启用全部注入和附属功能；发现已覆盖的接口或注入位置变化时，停用 Musicshare、保留原生 Plasmo Voice，并在日志与进入世界后的聊天中提示原因。不会仅凭版本号大小猜测接口兼容。
+
+结构检查无法判断接口内部行为变化，也不能保证与未来所有版本或其他模组兼容。Minecraft 版本仍限定为 1.21.11，Plasmo Voice 3.x 仍需单独适配。升级后出现异常时请提供日志。
 
 ## 使用
 
@@ -14,7 +22,7 @@ Windows 客户端附属模组：Fabric Minecraft 1.21.11、Plasmo Voice 2.1.17�
 
 此开关维持音乐共享发送流，真人麦克风仍遵循 Plasmo Voice 的语音激活/按键说话规则，不会混入尚未激活的人声；服务器静音、禁用麦克风、权限和附近距离继续有效。本机 HUD、头顶喇叭和 Talking Heads 仍按感应阈值显示。因为强制模式持续发送，远端玩家的小喇叭可能常亮。不开音乐共享时，该选项不产生发送。
 
-本版还清除音效旁路/重新启用时的旧人声队列，避免回放残留回声；试听设备采样率暂时无效时清空延迟缓冲，恢复有效格式后重新累积。
+此前的修复保留：清除音效旁路/重新启用时的旧人声队列，避免回放残留回声；试听设备采样率暂时无效时清空延迟缓冲，恢复有效格式后重新累积。
 ## 音乐音效页：TarsosDSP 人声操作面板
 
 该页名称为“音乐音效”，但新 DSP 面板只作用于人声，不处理音乐。已有独立双通道唱歌混响仍放在同一页；音乐共享和本机试听各有单独页面。音乐发送音量和立体声保留。此前移除的六种风格和旧音乐变调等效果不恢复。
@@ -59,6 +67,6 @@ Windows 客户端附属模组：Fabric Minecraft 1.21.11、Plasmo Voice 2.1.17�
 
 TarsosDSP core 2.5 的未修改源码位于 vendor/tarsos-core-2.5/be，参考源码/二进制下载保存在 vendor/downloads。综合发行包为 GPL-3.0-or-later；包含 LICENSE、此前代码的 LICENSE-MIT-legacy、滤波代码的 LGPL-2.0.txt、THIRD-PARTY-NOTICES.md。用户提供的 bi 录音权利不由代码许可代替。
 
-JDK 25 的 build.ps1 编译为 Java 21。将 Plasmo Voice 2.1.17 放入 deps/plasmovoice-2.1.17.jar，或通过 -VoiceJar 指定；MC/Fabric 编译依赖读取本机 Gradle 缓存。两个脚本均可通过 -Jdk 指定 JDK 路径。构建脚本依赖预先准备的 Minecraft 1.21.11 intermediary JAR 和 Gradle 缓存，目前不提供自动下载依赖的完整构建流程。test-load.ps1 在工作区隔离目录加载真实 Fabric/Knot 类并测试模拟传输，不启动用户游戏或访问真实麦克风；可选 Talking Heads 通过 -WithTalkingHeads 启用，JAR 放入 deps/talking-heads-1.1.3+1.21.11+fabric.jar，或通过 -TalkingHeadsJar 指定。
+JDK 25 的 build.ps1 编译为 Java 21。将编译基线 Plasmo Voice 2.1.17 放入 deps/plasmovoice-2.1.17.jar，或通过 -VoiceJar 指定；MC/Fabric 编译依赖读取本机 Gradle 缓存，需预先准备 Minecraft 1.21.11 intermediary JAR。两个脚本均支持 -Jdk。test-load.ps1 在工作区隔离目录加载真实 Fabric/Knot 类并测试模拟传输，不启动用户游戏或访问真实麦克风。通过 -VoiceJar 指定待验证的 Plasmo Voice，-RunName 使用不同隔离目录；-WithTalkingHeads 可配合 -TalkingHeadsJar 指定可选模组。CompatibilityTest 可检查已提供的旧版/新版 JAR 及模拟接口变化；CompatibilityFixture 仅在工作区生成重命名私有采集方法的测试副本，配合 -ExpectDisabled 验证停用流程。
 
-自动化通过：原声直通、预设区别、升调频率、镶边跨帧连续性、滤波衰减、WSOLA 音调保持及缓冲上限、极阴老祖原声直通和更响的后置回声、强制发送及关闭恢复门限、服务器静音约束、旧人声队列清理、无效试听格式恢复、参数持久化、立体声隔离、人声屏蔽快捷键按压、音乐共享快捷键、屏蔽优先、音乐独立、混响/试听/图标门限。Plasmo Voice 2.1.17 与可选 Talking Heads 1.1.3 加载测试通过。尚未验证真实设备听感、完整 GUI 视觉和多人服务器行为。
+自动化通过：原声直通、预设区别、升调频率、镶边跨帧连续性、滤波衰减、WSOLA 音调保持及缓冲上限、极阴老祖原声直通和更响的后置回声、强制发送及关闭恢复门限、服务器静音约束、旧人声队列清理、无效试听格式恢复、参数持久化、立体声隔离、人声屏蔽快捷键按压、音乐共享快捷键、屏蔽优先、音乐独立、混响/试听/图标门限。Plasmo Voice 2.1.17 和 2.2.0-beta.1 的实际 Fabric/Knot 加载及原有功能测试通过，后者同时加载 Talking Heads 1.1.3。模拟移除采集方法、公共 API 和试听调用位置会被检查拒绝；实际加载重命名采集方法的测试副本时，全部附属注入被跳过，入口提示不兼容且不启动 Musicshare。尚未验证真实设备听感、完整 GUI 视觉和多人服务器行为。

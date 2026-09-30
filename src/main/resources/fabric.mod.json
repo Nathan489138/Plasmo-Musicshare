@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "id": "plasmo-system-music",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "name": "Plasmo Musicshare",
   "description": "Windows audio capture excluding Minecraft, mixed with microphone and optionally synced with Talking Heads.",
   "authors": ["Local"],
   "license": "GPL-3.0-or-later",
   "environment": "client",
-  "entrypoints": {"client": ["local.plasmomusic.MusicAddon"]},
+  "entrypoints": {"client": ["local.plasmomusic.MusicshareClient"]},
   "mixins": ["plasmo-system-music.mixins.json"],
-  "depends": {"fabricloader": ">=0.16.0", "minecraft": "1.21.11", "java": ">=21", "fabric-api":"*", "plasmovoice": "2.1.17"}
+  "depends": {"fabricloader": ">=0.16.0", "minecraft": "1.21.11", "java": ">=21", "fabric-api":"*", "plasmovoice": ">=2.1.17 <3.0.0"}
 }

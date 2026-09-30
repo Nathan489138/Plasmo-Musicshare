@@ -21,7 +21,7 @@ public abstract class VoiceSettingsMusicTabMixin {
     @Shadow @Final private BaseVoiceClient voiceClient;
     @Shadow @Final private VoiceClientConfig config;
 
-    @Inject(method="init", at=@At(value="INVOKE",
+    @Inject(method="init()V", at=@At(value="INVOKE",
         target="Lsu/plo/voice/client/gui/settings/VoiceSettingsNavigation;init()V"), require=1)
     private void plasmoMusic$addTab(CallbackInfo ci) {
         MusicAddon app = MusicAddon.instance;

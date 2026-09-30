@@ -46,7 +46,7 @@ public final class SelfIconTest {
         app.settings=new Settings("exclude-game",true,50,true);
         MusicAddon previous=MusicAddon.instance;MusicAddon.instance=app;
         try{
-            Method extract=EntityIconStateExtractor.class.getDeclaredMethod("extractPlayer",class_1309.class,class_746.class);extract.setAccessible(true);
+            Method extract=Arrays.stream(EntityIconStateExtractor.class.getDeclaredMethods()).filter(m->m.getName().equals("extractPlayer")&&m.getParameterCount()==2).findFirst().orElseThrow();extract.setAccessible(true);
             Method hook=Arrays.stream(EntityIconStateExtractor.class.getDeclaredMethods()).filter(m->m.getName().contains("musicSelfIcon")).findFirst().orElseThrow();hook.setAccessible(true);
             short[] loud=new short[960];Arrays.fill(loud,(short)20000);
             app.recordSent(loud,false);
@@ -104,8 +104,13 @@ public final class SelfIconTest {
             hidden.set(false);app.recordSent(loud,false);
             MixTest.check(extract.invoke(EntityIconStateExtractor.INSTANCE,local,local)!=null,"self icon returns when sending resumes");
             var entityState=new class_10017();entityState.field_53330=1.8f;
-            var render=new su.plo.lib.mod.client.render.entity.LivingEntityRenderState(entityState);
-            MixTest.check(render.getNameTagAttachment().method_10214()>1.7,"native head attachment exists even when local name tag is hidden");
+            Class<?> renderType;
+            try{renderType=Class.forName("su.plo.lib.mod.client.render.entity.LivingEntityRenderState");}
+            catch(ClassNotFoundException changedIn22){renderType=Class.forName("su.plo.lib.mod.client.render.entity.EntityRenderState");}
+            Constructor<?> constructor=Arrays.stream(renderType.getConstructors()).filter(c->c.getParameterCount()==1&&c.getParameterTypes()[0].isInstance(entityState)).findFirst().orElseThrow();
+            Object render=constructor.newInstance(entityState);
+            var attachment=(class_243)renderType.getMethod("getNameTagAttachment").invoke(render);
+            MixTest.check(attachment.method_10214()>1.7,"native head attachment exists even when local name tag is hidden");
         }finally{MusicAddon.instance=previous;}
     }
     private static void checkUnchanged(Method hook,Player entity,Player local,String message)throws Exception {

@@ -11,7 +11,7 @@ import su.plo.voice.api.client.event.audio.capture.AudioCaptureProcessedEvent.Pr
 import su.plo.voice.proto.data.audio.capture.VoiceActivation;
 import java.util.*;
 
-/** Version-pinned injection: preserve PV mic gating, encryption, sequence numbers and server rules. */
+/** Contract-checked injection: preserve PV mic gating, encryption, sequence numbers and server rules. */
 @Mixin(targets="su.plo.voice.client.audio.capture.VoiceAudioCapture",remap=false)
 public abstract class VoiceCaptureMixin implements MusicAddon.CaptureBridge {
     @Shadow private AudioEncoder monoEncoder;
@@ -22,7 +22,7 @@ public abstract class VoiceCaptureMixin implements MusicAddon.CaptureBridge {
     @Shadow private void sendVoiceEndPacket(ClientActivation activation){throw new AssertionError();}
     @Unique private ClientActivation musicActivation;
 
-    @Inject(method="processActivation",at=@At("HEAD"),cancellable=true,require=1)
+    @Inject(method="processActivation(Lsu/plo/voice/api/client/audio/device/InputDevice;Lsu/plo/voice/api/client/audio/capture/ClientActivation;Lsu/plo/voice/api/client/audio/capture/ClientActivation$Result;[SLsu/plo/voice/client/audio/capture/VoiceAudioCapture$EncodedCapture;)V",at=@At("HEAD"),cancellable=true,require=1)
     private void musicMix(InputDevice device,ClientActivation activation,ClientActivation.Result result,short[] raw,
                           @Coerce Object encoded,CallbackInfo ci) {
         boolean proximity=activation.getId().equals(VoiceActivation.PROXIMITY_ID);
@@ -92,7 +92,7 @@ public abstract class VoiceCaptureMixin implements MusicAddon.CaptureBridge {
         if(MusicAddon.instance!=null)MusicAddon.instance.clearMusicTransmission();
         if(musicActivation!=null){sendVoiceEndPacket(musicActivation);activationStreams.remove(musicActivation.getId());musicActivation=null;}
     }
-    @Inject(method="cleanup",at=@At("HEAD"),require=1)
+    @Inject(method="cleanup()V",at=@At("HEAD"),require=1)
     private void musicCleanup(CallbackInfo ci){
         musicActivation=null;
         MusicAddon app=MusicAddon.instance;

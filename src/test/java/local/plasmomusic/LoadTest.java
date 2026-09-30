@@ -14,6 +14,18 @@ public final class LoadTest {
         Knot knot=new Knot(EnvType.CLIENT);
         ClassLoader target=knot.init(new String[]{"--version","1.21.11","--gameDir",args[0],"--accessToken","0"});
         Class<?> capture=Class.forName("su.plo.voice.client.audio.capture.VoiceAudioCapture",false,target);
+        if(args.length>2&&"expect-disabled".equals(args[2])){
+            String reason=System.getProperty("plasmo.musicshare.compatibility.error","");
+            if(!reason.contains("processActivation"))throw new AssertionError("Missing incompatible-hook diagnosis: "+reason);
+            for(var m:capture.getDeclaredMethods())if(m.getName().equals("musicStop"))throw new AssertionError("Capture mixin should be skipped");
+            for(String name:new String[]{"su.plo.voice.client.gui.settings.VoiceSettingsScreen","su.plo.voice.client.gui.settings.MicrophoneTestController","su.plo.voice.client.render.voice.EntityIconStateExtractor"})
+                for(var m:Class.forName(name,false,target).getDeclaredMethods())if(m.getName().contains("plasmoMusic$")||m.getName().contains("musicMonitor")||m.getName().contains("musicSelfIcon"))throw new AssertionError("Partial integration should be skipped: "+name);
+            Class.forName("local.plasmomusic.MusicshareClient",true,target).getMethod("onInitializeClient").invoke(Class.forName("local.plasmomusic.MusicshareClient",true,target).getConstructor().newInstance());
+            Class<?> addon=Class.forName("local.plasmomusic.MusicAddon",true,target);
+            if(addon.getField("instance").get(null)!=null)throw new AssertionError("Incompatible addon must not start");
+            System.out.println("PASS INCOMPATIBLE PV FALLBACK: all hooks skipped, entrypoint reports incompatibility without starting addon");
+            return;
+        }
         if(capture.getDeclaredMethod("musicStop")==null)throw new AssertionError("Mixin not applied");
         Class<?> addon=Class.forName("local.plasmomusic.MusicAddon",false,target);
         addon.getDeclaredMethods();
@@ -24,7 +36,9 @@ public final class LoadTest {
         if(!hasMusicTab)throw new AssertionError("Plasmo Voice music settings tab mixin not applied");
         Class.forName("local.plasmomusic.MusicTabWidget",false,target).getDeclaredMethods();
         Class.forName("local.plasmomusic.EffectsTabWidget",false,target).getDeclaredMethods();
-        System.out.println("PASS FABRIC/KNOT LOAD: real PV 2.1.17 transformed without Soundboard; settings mixin verified");
+        String voiceVersion=net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("plasmovoice").orElseThrow().getMetadata().getVersion().getFriendlyString();
+        if(!System.getProperty("plasmo.musicshare.compatibility.error","missing").isEmpty())throw new AssertionError("Compatibility gate rejected "+voiceVersion);
+        System.out.println("PASS FABRIC/KNOT LOAD: real PV "+voiceVersion+" transformed without Soundboard; compatibility contracts and settings mixin verified");
         if(withHeads){
             Class<?> utils=Class.forName("me.zipestudio.talkingheads.utils.talkingheads.AudioUtils",true,target);
             java.util.UUID player=java.util.UUID.randomUUID();

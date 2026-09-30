@@ -14,7 +14,7 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-@Addon(id="plasmo-system-music",name="Plasmo Musicshare",version="1.2.14",authors={"Local"})
+@Addon(id="plasmo-system-music",name="Plasmo Musicshare",version="1.2.15",authors={"Local"})
 public final class MusicAddon implements ClientModInitializer,AddonInitializer {
     @InjectPlasmoVoice private PlasmoVoiceClient voice;
     public static volatile MusicAddon instance;

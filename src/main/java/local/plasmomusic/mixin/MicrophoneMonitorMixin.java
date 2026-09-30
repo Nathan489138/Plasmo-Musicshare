@@ -13,7 +13,7 @@ public abstract class MicrophoneMonitorMixin {
     @Unique private int previewRate;
     @Unique private boolean previewStereo;
     @Shadow public abstract boolean isActive();
-    @Redirect(method="onAudioCaptureProcessed",at=@At(value="INVOKE",target="Lsu/plo/voice/api/client/event/audio/capture/AudioCaptureProcessedEvent$ProcessedSamples;getSamples(Z)[S"),require=1)
+    @Redirect(method="onAudioCaptureProcessed(Lsu/plo/voice/api/client/event/audio/capture/AudioCaptureProcessedEvent;)V",at=@At(value="INVOKE",target="Lsu/plo/voice/api/client/event/audio/capture/AudioCaptureProcessedEvent$ProcessedSamples;getSamples(Z)[S"),require=1)
     private short[] musicMonitor(ProcessedSamples processed,boolean stereo,AudioCaptureProcessedEvent event){
         short[] mic=processed.getSamples(stereo);
         uncensoredMicrophone=mic;
@@ -21,12 +21,12 @@ public abstract class MicrophoneMonitorMixin {
         MusicAddon app=MusicAddon.instance;
         return app==null?mic:app.monitorSamples(mic,(int)event.getDevice().getFormat().getSampleRate(),stereo,isActive());
     }
-    @Redirect(method="onAudioCaptureProcessed",at=@At(value="INVOKE",target="Lsu/plo/voice/api/client/audio/source/LoopbackSource;write([S)V"),require=1)
+    @Redirect(method="onAudioCaptureProcessed(Lsu/plo/voice/api/client/event/audio/capture/AudioCaptureProcessedEvent;)V",at=@At(value="INVOKE",target="Lsu/plo/voice/api/client/audio/source/LoopbackSource;write([S)V"),require=1)
     private void musicPreviewDelay(su.plo.voice.api.client.audio.source.LoopbackSource source,short[] samples){
         MusicAddon app=MusicAddon.instance;
         source.write(app==null?samples:app.delayedPreview(samples,previewRate,previewStereo));
     }
-    @Redirect(method="onAudioCaptureProcessed",at=@At(value="INVOKE",target="Lsu/plo/voice/api/util/AudioUtil;calculateHighestAudioLevel([S)D"),require=1)
+    @Redirect(method="onAudioCaptureProcessed(Lsu/plo/voice/api/client/event/audio/capture/AudioCaptureProcessedEvent;)V",at=@At(value="INVOKE",target="Lsu/plo/voice/api/util/AudioUtil;calculateHighestAudioLevel([S)D"),require=1)
     private double censorDetection(short[] outgoing){
         double level=su.plo.voice.api.util.AudioUtil.calculateHighestAudioLevel(outgoing);
         MusicAddon app=MusicAddon.instance;

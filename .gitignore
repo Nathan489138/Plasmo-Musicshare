@@ -1,0 +1,16 @@
+# Local build products and dependencies
+/build/
+/deps/
+/logs/
+/.gradle/
+/run/
+/outputs/
+
+# Editors and local configuration
+/.idea/
+/.vscode/
+*.iml
+*.log
+*.class
+.DS_Store
+Thumbs.db

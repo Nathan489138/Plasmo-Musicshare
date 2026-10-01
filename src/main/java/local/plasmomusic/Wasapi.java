@@ -73,11 +73,15 @@ public final class Wasapi {
     }
     public static void capture(String id, BooleanSupplier running, Sink sink) throws InterruptedException {
         check(Ole.INSTANCE.CoInitializeEx(null,0),"初始化 COM");
-        Pointer en=null,device=null,client=null,capture=null,format=null; boolean started=false, process=id.equals("exclude-game");
+        Pointer en=null,device=null,client=null,capture=null,format=null; boolean started=false, process=id.equals("exclude-game")||id.startsWith("process:");
         try {
             PointerByReference out=new PointerByReference();
             if(process){
-                client=ProcessLoopback.activate((int)ProcessHandle.current().pid());
+                if(id.startsWith("process:")){
+                    long pid=Long.parseLong(id.substring(8));
+                    if(pid<=0||pid>0xffff_ffffL||pid==ProcessHandle.current().pid())throw new IllegalArgumentException("无效的音频目标进程");
+                    client=ProcessLoopback.activate((int)pid,true);
+                }else client=ProcessLoopback.activate((int)ProcessHandle.current().pid());
                 Memory pcm=new Memory(18);pcm.clear();pcm.setShort(0,(short)1);pcm.setShort(2,(short)2);
                 pcm.setInt(4,48000);pcm.setInt(8,192000);pcm.setShort(12,(short)4);pcm.setShort(14,(short)16);format=pcm;
             }else{

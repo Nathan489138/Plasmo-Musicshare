@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "plasmo-system-music",
-  "version": "1.2.15",
+  "version": "1.2.19",
   "name": "Plasmo Musicshare",
   "description": "Windows audio capture excluding Minecraft, mixed with microphone and optionally synced with Talking Heads.",
   "authors": ["Local"],

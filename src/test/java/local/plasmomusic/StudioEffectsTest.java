@@ -15,13 +15,13 @@ public final class StudioEffectsTest {
             check(Arrays.equals(signal,new ChannelEffects().process(signal,48000,false,style,0,StudioSettings.Room.OFF,25)),style.label+" at 0% returns exact original samples");
         }
         ChannelEffects whole=new ChannelEffects(),split=new ChannelEffects();
-        short[] expected=whole.process(signal,48000,false,StudioSettings.Style.ANCESTOR,80,StudioSettings.Room.STUDIO,25),actual=new short[signal.length];
-        for(int i=0;i<signal.length;i+=960){short[] part=split.process(Arrays.copyOfRange(signal,i,i+960),48000,false,StudioSettings.Style.ANCESTOR,80,StudioSettings.Room.STUDIO,25);System.arraycopy(part,0,actual,i,part.length);}
+        short[] expected=whole.process(signal,48000,false,StudioSettings.Style.VILLAIN,80,StudioSettings.Room.STUDIO,25),actual=new short[signal.length];
+        for(int i=0;i<signal.length;i+=960){short[] part=split.process(Arrays.copyOfRange(signal,i,i+960),48000,false,StudioSettings.Style.VILLAIN,80,StudioSettings.Room.STUDIO,25);System.arraycopy(part,0,actual,i,part.length);}
         check(Arrays.equals(expected,actual),"character effects and reverb stay continuous across capture frames");
         short[] pure=new short[48000];for(int i=0;i<pure.length;i++)pure[i]=(short)(6000*Math.sin(2*Math.PI*220*i/48000));
-        short[] baby=new ChannelEffects().process(pure,48000,false,StudioSettings.Style.BABY,100,StudioSettings.Room.OFF,0);
+        short[] baby=new ChannelEffects().process(pure,48000,false,StudioSettings.Style.CHILD,100,StudioSettings.Room.OFF,0);
         int crossings=0;for(int i=24001;i<baby.length;i++)if(baby[i-1]<=0&&baby[i]>0)crossings++;
-        check(crossings*2>285&&crossings*2<305,"TarsosDSP baby raises 220 Hz input by approximately five semitones");
+        check(crossings*2>265&&crossings*2<290,"TarsosDSP child raises 220 Hz input by approximately four semitones");
         ChannelEffects echo=new ChannelEffects();short[] echoPulse=new short[960];echoPulse[0]=10000;
         echo.process(echoPulse,48000,false,StudioSettings.Style.ECHO,100,StudioSettings.Room.OFF,0);
         check(echo.hasTail(),"echo tracks pending repeats even during the initial quiet gap");
@@ -58,7 +58,7 @@ public final class StudioEffectsTest {
         check(energy(delay.process(impulse,0,false,1,70))==0,"temporarily invalid device sample rate clears preview safely");
         check(energy(delay.process(new short[960],48000,false,1,70))==0,"valid device format resumes preview with a fresh delay buffer");
         Path config=Files.createTempDirectory("studio-test").resolve("studio.properties");
-        StudioSettings options=StudioSettings.defaults().voice(StudioSettings.Style.BABY,65,StudioSettings.Room.STUDIO,32).music(StudioSettings.Style.NONE,80,StudioSettings.Room.SMALL,12).preview(3,60,false);
+        StudioSettings options=StudioSettings.defaults().voice(StudioSettings.Style.CHILD,65,StudioSettings.Room.STUDIO,32).music(StudioSettings.Style.NONE,80,StudioSettings.Room.SMALL,12).preview(3,60,false);
         options.save(config);check(options.equals(StudioSettings.read(config)),"voice/music presets and delayed preview settings persist independently");
         Files.writeString(config,"voice.style=BABY\nmusic.style=ALIEN\nvoice.room=STUDIO\npreview.delay=0\n");
         StudioSettings migrated=StudioSettings.read(config);

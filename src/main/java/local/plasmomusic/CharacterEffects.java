@@ -12,18 +12,22 @@ final class CharacterEffects {
     private DelayEffect[] echoes;private FlangerStream[] flangers;private IIRFilter[] filters;
     private float[][] behind;private int behindIndex;private double phase;
     private double[] dryPower,deepPower,referencePower;
+    private float[][] resonance;private int resonanceIndex;
+    private VoiceLevelMatch[] levels;
     short[] process(short[] input,int rate,boolean stereo,StudioSettings.Style style,int strength){
-        return process(input,rate,stereo,strength,320,40,DspSettings.preset(style));
+        return process(input,rate,stereo,strength,320,40,DspSettings.preset(style),style==StudioSettings.Style.UNDERWATER);
     }
     short[] processVoice(short[] input,int rate,boolean stereo,StudioSettings s){
-        return process(input,rate,stereo,s.voiceStrength(),s.echoDelay(),s.echoFeedback(),s.dsp());
+        return process(input,rate,stereo,s.voiceStrength(),s.echoDelay(),s.echoFeedback(),s.dsp(),s.voiceStyle()==StudioSettings.Style.UNDERWATER);
     }
-    private short[] process(short[] input,int nextRate,boolean stereo,int strength,int ms,int decay,DspSettings d){
+    private short[] process(short[] input,int nextRate,boolean stereo,int strength,int ms,int decay,DspSettings d,boolean matchFilter){
         int count=stereo?2:1;
         if(rate!=nextRate||channels!=count||!d.equals(config)||echoMs!=ms||feedback!=decay||enabled!=(strength>0)){
             rate=nextRate;channels=count;config=d;echoMs=ms;feedback=decay;enabled=strength>0;tailSamples=0;phase=0;written=0;behindIndex=0;
             pitch=new PitchStream[count];tempo=new TempoStream[count];echoes=new DelayEffect[count];flangers=new FlangerStream[count];filters=new IIRFilter[count];
             behind=new float[count][Math.max(1,rate*ms/1000)];dryPower=new double[count];deepPower=new double[count];referencePower=new double[count];
+            resonance=d.ancestor()?new float[count][Math.max(2,rate*83/1000)]:null;resonanceIndex=0;
+            levels=new VoiceLevelMatch[count];for(int c=0;c<count;c++)levels[c]=new VoiceLevelMatch(rate);
             for(int c=0;c<count;c++){
                 if(d.pitch()!=0)pitch[c]=new PitchStream(Math.pow(2,d.pitch()/12.0),rate);
                 if(d.stretch()&&d.speed()!=100)tempo[c]=new TempoStream(rate,d.speed());
@@ -50,23 +54,32 @@ final class CharacterEffects {
             AudioEvent event=new AudioEvent(new TarsosDSPAudioFormat(rate,16,1,true,false));event.setFloatBuffer(processed[c]);event.setBytesProcessed(written*2);
             if(filters[c]!=null)filters[c].process(event);
             if(flangers[c]!=null)for(int i=0;i<frames;i++)processed[c][i]=flangers[c].sample(processed[c][i]);
+            // Match the transformed source before echoes: silence and natural echo decay remain intact.
+            if(!d.ancestor()&&(d.pitch()!=0||d.robot()||matchFilter))for(int i=0;i<frames;i++)processed[c][i]=levels[c].sample(input[i*count+c]/32768f,processed[c][i]);
         }
         // A delayed lower-register branch: no immediate low voice is mixed into the original.
         if(d.ancestor()){
             for(int i=0;i<frames;i++){
                 for(int c=0;c<count;c++){
                     double dry=input[i*count+c]/32768.0,x=processed[c][i];
+                    // Dark, layered resonance lives only in the delayed voice branch.
+                    // Feed-forward taps cannot sustain runaway feedback or alter dry speech.
+                    int early=(resonanceIndex-resonance[c].length*48/83+resonance[c].length)%resonance[c].length;
+                    float first=resonance[c][early],second=resonance[c][resonanceIndex];
+                    resonance[c][resonanceIndex]=(float)x;
+                    x=Math.tanh((x+.22*first+.14*second)*1.6)/1.6;
                     dryPower[c]+=.0005*(dry*dry-dryPower[c]);deepPower[c]+=.0005*(x*x-deepPower[c]);
                     if(Math.abs(dry)>.00008)referencePower[c]=dryPower[c];
                     double norm=Math.max(.25,Math.min(4,Math.sqrt(referencePower[c]/Math.max(.00000001,deepPower[c]))));
                     float delayed=behind[c][behindIndex];behind[c][behindIndex]=(float)(x*norm);processed[c][i]=delayed;
                 }
                 behindIndex=(behindIndex+1)%behind[0].length;
+                resonanceIndex=(resonanceIndex+1)%resonance[0].length;
             }
         }
         float[][] preDelay=new float[count][];
         for(int c=0;c<count;c++){
-            preDelay[c]=processed[c].clone();
+            if(d.delay()&&!d.ancestor())preDelay[c]=processed[c].clone();
             if(echoes[c]!=null){AudioEvent e=new AudioEvent(new TarsosDSPAudioFormat(rate,16,1,true,false));e.setFloatBuffer(processed[c]);echoes[c].process(e);}
         }
         short[] output=new short[input.length];double wet=strength/100.0;

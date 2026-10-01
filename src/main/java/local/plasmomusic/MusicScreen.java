@@ -21,17 +21,18 @@ public final class MusicScreen extends class_437 {
     @Override protected void method_25426(){
         width=Math.min(356,field_22789-24);
         left=(field_22789-width)/2;
-        top=Math.max(4,(field_22790-228)/2);
+        top=Math.max(4,(field_22790-252)/2);
         toggle=button("",left,top+122,width,()->app.toggle());
-        method_37063(new class_357(left,top+146,width,20,class_2561.method_43470(""),app.settings.volume()/150d){
+        method_37063(new class_357(left,top+146,width,20,class_2561.method_43470(""),app.settings.volume()/(double)Settings.MAX_VOLUME){
             {method_25346();}
-            protected void method_25346(){method_25355(class_2561.method_43470("发送音量："+Math.round(field_22753*150)+"%"));}
-            protected void method_25344(){Settings s=app.settings;app.update(new Settings("exclude-game",s.enabled(),(int)Math.round(field_22753*150),s.stereo(),s.forceOpen()));}
+            protected void method_25346(){method_25355(class_2561.method_43470("发送音量："+Math.round(field_22753*Settings.MAX_VOLUME)+"%"));}
+            protected void method_25344(){Settings s=app.settings;app.update(new Settings("exclude-game",s.enabled(),(int)Math.round(field_22753*Settings.MAX_VOLUME),s.stereo(),s.forceOpen()));}
         });
         stereo=button("",left,top+170,width,()->{Settings s=app.settings;app.update(new Settings("exclude-game",s.enabled(),s.volume(),!s.stereo(),s.forceOpen()));});
         int gap=8,half=(width-gap)/2;
         button("停止共享",left,top+194,half,()->app.setEnabled(false));
         button("完成",left+half+gap,top+194,half,this::method_25419);
+        button("选择抓取程序",left,top+218,width,()->field_22787.method_1507(new ProcessSelectionScreen(app,this)));
         labels();
     }
     private void labels(){
@@ -85,7 +86,7 @@ public final class MusicScreen extends class_437 {
         context.method_25294(left,top+51,left+width,top+117,0xb0151e2b);
         line(context,"实时音乐抓取 · Talking Heads 适配",top+3,0xffffffff);
         line(context,app.displayStatus,top+20,0xff89d7ff);
-        line(context,"音源：电脑其他应用（排除 Minecraft）",top+37,0xffa9e7c8);
+        line(context,"音源："+app.captureDescription(),top+37,0xffa9e7c8);
         meter(context,"采集电平",captureDb,captureDisplay,top+68,false);
         meter(context,"发送电平（含麦克风）",outgoingDb,outgoingDisplay,top+100,true);
         line(context,"按住快捷键屏蔽 / 快捷键开关音乐 · 白线为感应阈值",top+111,0xffaab9c5);

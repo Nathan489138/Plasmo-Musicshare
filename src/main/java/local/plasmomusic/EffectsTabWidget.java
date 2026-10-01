@@ -63,11 +63,11 @@ public final class EffectsTabWidget extends TabWidget {
             addEntry(createIntSliderWidget(text("镶边深度"),text("最大延迟长度"),flangerDepth," ms"));
             addEntry(new CategoryEntry(text("延迟 / 回声")));
             addEntry(createToggleEntry(text("开启延迟"),text("保留原声并加入衰减回声"),echo));
-            addEntry(createIntSliderWidget(text("回声间隔"),text("普通回声与极阴老祖后置回声的间隔"),echoDelay," ms"));
+            addEntry(createIntSliderWidget(text("回声间隔"),text("回声与反派回响的间隔"),echoDelay," ms"));
             addEntry(createIntSliderWidget(text("回声反馈"),text("越高重复越久；最大 65%，避免无限回声"),echoFeedback,"%"));
-            addEntry(createIntSliderWidget(text("回声音量"),text("极阴老祖默认 180%，后置厚重回声比原声更响；满幅声音仍会限幅"),echoGain,"%"));
+            addEntry(createIntSliderWidget(text("回声音量"),text("反派默认 55%，调整变声后回响的音量；满幅声音仍会限幅"),echoGain,"%"));
             addEntry(new CategoryEntry(text("变调与滤波")));
-            addEntry(createIntSliderWidget(text("变调"),text("0 为原音调；极阴老祖只改变后置回声的音调"),pitch," 半音"));
+            addEntry(createIntSliderWidget(text("变调"),text("0 为原音调；小孩升调，反派降调"),pitch," 半音"));
             addEntry(createDropDownEntry(text("滤波模式"),text("关闭、低通、高通或带通"),DspSettings.Filter.class,Arrays.stream(DspSettings.Filter.values()).map(v->text(v.label)).toList(),filter,true));
             addEntry(createIntSliderWidget(text("截止 / 中心频率"),text("带通模式为中心频率"),cutoff," Hz"));
             addEntry(new CategoryEntry(text("时间拉伸")));

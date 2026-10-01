@@ -23,9 +23,10 @@ public final class MusicTabWidget extends TabWidget {
 
     private final MusicAddon app;
     private final BooleanConfigEntry sharing = new BooleanConfigEntry(false);
+    private final BooleanConfigEntry selectedOnly = new BooleanConfigEntry(false);
     private final BooleanConfigEntry forceOpen = new BooleanConfigEntry(false);
     private final BooleanConfigEntry censor = new BooleanConfigEntry(false);
-    private final IntConfigEntry volume = new IntConfigEntry(50, 0, 150);
+    private final IntConfigEntry volume = new IntConfigEntry(50, 0, Settings.MAX_VOLUME);
     private final BooleanConfigEntry stereo = new BooleanConfigEntry(true);
     private boolean syncing;
     private double captureDisplay, outgoingDisplay;
@@ -36,6 +37,7 @@ public final class MusicTabWidget extends TabWidget {
         this.app = app;
         syncFromApp();
         sharing.addChangeListener(value -> { if (!syncing) app.setEnabled(value); });
+        selectedOnly.addChangeListener(value -> {if(!syncing)app.setCaptureSelection(new CaptureSelection(!value,app.captureSelection.programs()));});
         forceOpen.addChangeListener(value -> { if (!syncing) app.setForceOpen(value); });
         censor.addChangeListener(value -> { if (!syncing) app.setCensorEnabled(value); });
         volume.addChangeListener(value -> {
@@ -58,10 +60,13 @@ public final class MusicTabWidget extends TabWidget {
         addEntry(new CategoryEntry(McTextComponent.literal("共享音乐")));
         addEntry(createToggleEntry(McTextComponent.literal("开启共享"),
             McTextComponent.literal("附近玩家将听到电脑其他应用的声音；不会抓取 Minecraft"), sharing));
+        addEntry(createToggleEntry(McTextComponent.literal("只抓取指定程序"),
+            McTextComponent.literal("开启后只抓取选中的程序；关闭恢复全局抓取（除 MC 外全部声音）"),selectedOnly));
+        addEntry(new ProgramsEntry());
         addEntry(createToggleEntry(McTextComponent.literal("强制话筒开启"),
             McTextComponent.literal("共享期间低于感应阈值也持续发送，远端喇叭可能常亮；真人麦克风仍按原有激活规则，静音和权限仍有效"), forceOpen));
         addEntry(createIntSliderWidget(McTextComponent.literal("发送音量"),
-            McTextComponent.literal("只调整分享给附近玩家的音乐音量"), volume, "%"));
+            McTextComponent.literal("最高 500%（5 倍）；可降低播放器音量后放大共享音乐，过高可能产生失真"), volume, "%"));
         addEntry(createToggleEntry(McTextComponent.literal("立体声"),
             McTextComponent.literal("服务器不支持时自动使用单声道"), stereo));
         addEntry(new CategoryEntry(McTextComponent.literal("人声屏蔽")));
@@ -83,12 +88,36 @@ public final class MusicTabWidget extends TabWidget {
         syncing = true;
         try {
             sharing.set(current.enabled());
+            selectedOnly.set(!app.captureSelection.global());
             forceOpen.set(current.forceOpen());
             censor.set(app.censorEnabled);
             volume.set(current.volume());
             stereo.set(current.stereo());
         } finally {
             syncing = false;
+        }
+    }
+
+    private final class ProgramsEntry extends Entry {
+        private final su.plo.lib.mod.client.gui.components.Button button;
+        private final su.plo.lib.mod.client.gui.components.Button scan;
+        ProgramsEntry(){
+            super(54);
+            button=new su.plo.lib.mod.client.gui.components.Button(0,0,240,20,McTextComponent.literal("选择程序"),b->{
+                net.minecraft.class_310 client=net.minecraft.class_310.method_1551();
+                client.method_1507(new ProcessSelectionScreen(app,client.field_1755));
+            },su.plo.lib.mod.client.gui.components.Button.NO_TOOLTIP);
+            scan=new su.plo.lib.mod.client.gui.components.Button(0,0,100,20,McTextComponent.literal("扫描程序"),b->app.refreshProcesses(),su.plo.lib.mod.client.gui.components.Button.NO_TOOLTIP);
+        }
+        @Override public java.util.List<? extends su.plo.lib.mod.client.gui.widget.GuiWidgetListener> widgets(){return java.util.List.of(button,scan);}
+        @Override public void render(GuiRenderContext context,int index,int x,int y,int entryWidth,int mouseX,int mouseY,boolean hovered,float delta){
+            int width=Math.max(120,entryWidth-48),scanWidth=Math.min(100,width/2);
+            button.setX(x+24);button.setY(y+3);button.setWidth(width-scanWidth-6);
+            scan.setX(x+24+width-scanWidth);scan.setY(y+3);scan.setWidth(scanWidth);
+            button.setText(McTextComponent.literal("选择程序 · 已选 "+app.captureSelection.programs().size()+" 个"));
+            button.render(context,mouseX,mouseY,delta);
+            scan.render(context,mouseX,mouseY,delta);
+            context.drawString(app.processScanStatus,x+24,y+30,MUTED);
         }
     }
 

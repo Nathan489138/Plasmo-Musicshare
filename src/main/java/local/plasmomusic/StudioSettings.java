@@ -8,7 +8,7 @@ public record StudioSettings(Style voiceStyle,int voiceStrength,Style musicStyle
                              Room voiceRoom,int voiceReverb,Room musicRoom,int musicReverb,int previewDelay,int previewVolume,boolean previewMusic,
                              int echoDelay,int echoFeedback,int ancestorFirst,int ancestorSecond,DspSettings dsp){
     public enum Style {
-        NONE("原声"),ECHO("回声"),ROBOT("机器人声"),BABY("婴儿声"),ANCESTOR("极阴老祖"),CUSTOM("自定义");
+        NONE("原声"),ECHO("回声"),ROBOT("机器人声"),CHILD("小孩"),VILLAIN("反派"),UNDERWATER("水下低通"),CUSTOM("自定义");
         public final String label;Style(String label){this.label=label;}
     }
     public enum Room {
@@ -34,16 +34,21 @@ public record StudioSettings(Style voiceStyle,int voiceStrength,Style musicStyle
     private static <E extends Enum<E>> E choice(Properties p,String key,E fallback){try{return Enum.valueOf(fallback.getDeclaringClass(),p.getProperty(key));}catch(Exception e){return fallback;}}
     public static StudioSettings read(Path path)throws IOException{
         Properties p=new Properties();if(Files.exists(path))try(var in=Files.newInputStream(path)){p.load(in);}
-        // Existing BABY meant the removed legacy preset. Enable new presets only in this schema.
-        Style style=("2".equals(p.getProperty("voice.schema"))||"3".equals(p.getProperty("voice.schema")))?choice(p,"voice.style",Style.NONE):Style.NONE;
+        String schema=p.getProperty("voice.schema"),oldStyle=p.getProperty("voice.style","");
+        boolean modern="2".equals(schema)||"3".equals(schema)||"4".equals(schema);
+        boolean replaced=modern&&(oldStyle.equals("BABY")||oldStyle.equals("ANCESTOR"));
+        Style style=!modern?Style.NONE:oldStyle.equals("BABY")?Style.CHILD:oldStyle.equals("ANCESTOR")?Style.VILLAIN:choice(p,"voice.style",Style.NONE);
+        DspSettings panel=replaced?DspSettings.preset(style):DspSettings.read(p,style);
+        // Update the previous stock robot's overly narrow filter, preserving custom racks.
+        if(!"4".equals(schema)&&style==Style.ROBOT&&panel.equals(new DspSettings(true,25,100,4,false,100,0,DspSettings.Filter.BAND,1500,false,100,true,false)))panel=DspSettings.preset(style);
         return new StudioSettings(style,number(p,"voice.strength",100),Style.NONE,0,
             choice(p,"voice.room",Room.OFF),number(p,"voice.reverb",25),choice(p,"music.room",Room.OFF),number(p,"music.reverb",15),
             number(p,"preview.delay",1),number(p,"preview.volume",70),Boolean.parseBoolean(p.getProperty("preview.music","true")),
-            number(p,"voice.echo.ms",320),number(p,"voice.echo.feedback",40),number(p,"voice.ancestor.first",45),number(p,"voice.ancestor.second",35),DspSettings.read(p,style));
+            number(p,"voice.echo.ms",320),number(p,"voice.echo.feedback",40),number(p,"voice.ancestor.first",45),number(p,"voice.ancestor.second",35),panel);
     }
     public void save(Path path)throws IOException{
         Files.createDirectories(path.getParent());Properties p=new Properties();
-        dsp.write(p);p.setProperty("voice.schema","3");p.setProperty("voice.style",voiceStyle.name());p.setProperty("voice.strength",""+voiceStrength);
+        dsp.write(p);p.setProperty("voice.schema","4");p.setProperty("voice.style",voiceStyle.name());p.setProperty("voice.strength",""+voiceStrength);
         p.setProperty("voice.room",voiceRoom.name());p.setProperty("voice.reverb",""+voiceReverb);p.setProperty("music.room",musicRoom.name());p.setProperty("music.reverb",""+musicReverb);
         p.setProperty("preview.delay",""+previewDelay);p.setProperty("preview.volume",""+previewVolume);p.setProperty("preview.music",""+previewMusic);
         p.setProperty("voice.echo.ms",""+echoDelay);p.setProperty("voice.echo.feedback",""+echoFeedback);p.setProperty("voice.ancestor.first",""+ancestorFirst);p.setProperty("voice.ancestor.second",""+ancestorSecond);

@@ -55,6 +55,18 @@ public class AudioTest {
             "surround top-front and top-back channels retain their left/right positions");
     }
     public static void main(String[] args)throws Exception {
+        AudioBuffer quiet=new AudioBuffer();
+        quiet.offer(new float[]{.01f,-.005f,.01f,-.005f,.01f,-.005f},48000);
+        short[] amplified=new MusicStream(quiet).read(2,48000,true,new Settings("exclude-game",true,500,true),EffectSettings.defaults());
+        eq(Math.abs(amplified[0]-1638)<=1&&Math.abs(amplified[1]+819)<=1,"500 percent amplifies quiet stereo music fivefold with channel polarity intact");
+        quiet.clear();quiet.offer(new float[]{.3f,-.3f,.3f,-.3f},48000);
+        amplified=new MusicStream(quiet).read(1,48000,true,new Settings("exclude-game",true,500,true),EffectSettings.defaults());
+        eq(amplified[0]==32767&&amplified[1]==-32768,"high music gain clips at PCM bounds without sign wraparound");
+        Path boostedFile=Files.createTempDirectory("musicshare-gain-test").resolve("settings.properties");
+        Settings boosted=new Settings("exclude-game",false,500,true,true);boosted.save(boostedFile);
+        eq(Settings.read(boostedFile).equals(boosted),"500 percent survives settings reload with other flags intact");
+        eq(new Settings("exclude-game",false,Integer.MAX_VALUE,true).volume()==Settings.MAX_VOLUME,"out-of-range gain is bounded at 500 percent");
+        for(int oldVolume:new int[]{0,50,100,150})eq(new Settings("exclude-game",false,oldVolume,true).volume()==oldVolume,"existing gain "+oldVolume+" is preserved");
         float[] decoded=new float[4];
         Wasapi.decode(new byte[]{0,64,0,(byte)192,0,32,0,(byte)224},2,2,16,1,3,decoded);
         eq(decoded[0]==.5f&&decoded[1]==-.5f&&decoded[2]==.25f&&decoded[3]==-.25f,"PCM16 channel order and sign");

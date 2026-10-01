@@ -1,4 +1,4 @@
-# Third-party notices — Plasmo Musicshare 1.2.15
+# Third-party notices — Plasmo Musicshare 1.2.17
 
 This release bundles TarsosDSP core 2.5, developed by Joren Six and contributors at IPEM, University Ghent.
 Project: https://github.com/JorenSix/TarsosDSP

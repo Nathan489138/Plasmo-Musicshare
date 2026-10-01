@@ -14,7 +14,7 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-@Addon(id="plasmo-system-music",name="Plasmo Musicshare",version="1.2.15",authors={"Local"})
+@Addon(id="plasmo-system-music",name="Plasmo Musicshare",version="1.2.19",authors={"Local"})
 public final class MusicAddon implements ClientModInitializer,AddonInitializer {
     @InjectPlasmoVoice private PlasmoVoiceClient voice;
     public static volatile MusicAddon instance;
@@ -30,6 +30,14 @@ public final class MusicAddon implements ClientModInitializer,AddonInitializer {
     public volatile EffectSettings effects=EffectSettings.defaults();
     public volatile boolean censorEnabled;
     public volatile StudioSettings studio=StudioSettings.defaults();
+    public volatile CaptureSelection captureSelection=CaptureSelection.defaults();
+    public volatile ProcessCatalog.Snapshot processSnapshot=ProcessCatalog.empty();
+    public volatile String processScanStatus="尚未扫描";
+    private volatile ProcessCatalog.Snapshot targetSnapshot=ProcessCatalog.empty();
+    private String lastStatusText="";
+    private long lastStatusWrite;
+    private final java.util.concurrent.atomic.AtomicBoolean scanningProcesses=new java.util.concurrent.atomic.AtomicBoolean();
+    private ExecutorService processScanner;
     public volatile boolean previewActive;
     private final java.util.concurrent.ConcurrentHashMap<UUID,ChannelEffects> voiceEffects=new java.util.concurrent.ConcurrentHashMap<>();
     private volatile ChannelEffects previewVoiceEffects=new ChannelEffects();
@@ -41,6 +49,7 @@ public final class MusicAddon implements ClientModInitializer,AddonInitializer {
     private final Path effectsFile=file.resolveSibling("plasmo-system-music-effects.properties");
     private final Path studioFile=file.resolveSibling("plasmo-musicshare-studio.properties");
     private final Path statusFile=file.resolveSibling("plasmo-system-music-status.txt");
+    private final Path captureFile=file.resolveSibling("plasmo-musicshare-capture.properties");
     private volatile Thread capture;
     private volatile boolean capturing,closed;
     private volatile String status="音乐未开启",format="";
@@ -65,6 +74,7 @@ public final class MusicAddon implements ClientModInitializer,AddonInitializer {
         try {effects=EffectSettings.read(effectsFile);}
         catch(Exception e){System.err.println("[Plasmo System Music] effects: "+e);}
         try{studio=StudioSettings.read(studioFile);}catch(Exception e){System.err.println("[Plasmo Musicshare] studio: "+e);}
+        try{captureSelection=CaptureSelection.read(captureFile);}catch(Exception e){System.err.println("[Plasmo Musicshare] capture settings: "+e);}
         PlasmoVoiceClient.getAddonsLoader().load(this);
     }
     @Override public void onAddonInitialize() {
@@ -81,25 +91,40 @@ public final class MusicAddon implements ClientModInitializer,AddonInitializer {
             boolean connected=voice.getServerInfo().isPresent();
             if(capture!=null&&!capture.isAlive())capture=null;
             boolean need=(next.enabled()||previewActive&&studio.previewMusic())&&connected&&"exclude-game".equals(next.device());
-            if(capture!=null&&(!need||!openedDevice.equals(next.device())))stopCapture();
+            if(capture!=null&&(!need||!openedDevice.equals(captureSelection.key())))stopCapture();
             if(need&&capture==null&&System.nanoTime()>=retryAtNanos)startCapture(next.device());
             String state=!connected?"等待连接 Plasmo Voice 服务器":!next.enabled()?"音乐已关闭":status;
             if(capturing&&next.enabled())state=!allowed()?"采集中；语音被静音、禁用或麦克风尚未就绪，暂不发送":
                 System.nanoTime()-lastSentNanos<1_000_000_000L?"正在发送附近音乐":"采集中；等待附近语音帧（检查麦克风 / 语音权限）";
+            if(connected&&next.enabled()&&!captureSelection.global()){
+                if(captureSelection.programs().isEmpty())state="指定程序模式：请先选择目标程序";
+                else if(targetSnapshot.targets(captureSelection.programs()).isEmpty())state="指定程序模式：等待所选程序启动";
+            }
             displayStatus=state;
             if(previewActive)displayStatus="本机试听中 · 延迟 "+studio.previewDelay()+" 秒 · 暂停对外发送";
-            Files.writeString(statusFile,state+"\n"+format+"\n采集电平："+Math.round(buffer.peak*100)+"%\n发送音量："+next.volume()+"%\n"+
+            String statusText=state+"\n"+format+"\n采集电平："+Math.round(buffer.peak*100)+"%\n发送音量："+next.volume()+"%\n"+
                 "Plasmo 麦克风："+voice.getConfig().getVoice().getInputDevice().value()+"\n"+
-                "Plasmo 耳机："+voice.getConfig().getVoice().getOutputDevice().value());
+                "Plasmo 耳机："+voice.getConfig().getVoice().getOutputDevice().value();
+            long now=System.nanoTime();
+            if(!statusText.equals(lastStatusText)&&now-lastStatusWrite>=1_000_000_000L){Files.writeString(statusFile,statusText);lastStatusText=statusText;lastStatusWrite=now;}
         }catch(Exception e){status="控制错误："+e.getMessage();System.err.println("[Plasmo System Music] "+e);}
     }
     private synchronized void startCapture(String id) {
-        openedDevice=id; status="正在打开系统音源…";buffer.clear();
+        CaptureSelection selection=captureSelection;
+        openedDevice=selection.key(); status="正在打开系统音源…";buffer.clear();
         Thread t=new Thread(()->{
-            try {captureBackend.capture(id,()->!closed&&!Thread.currentThread().isInterrupted(),new Wasapi.Sink(){
+            try {Wasapi.Sink sink=new Wasapi.Sink(){
                 public void format(int rate,int channels,int bits){format=rate+" Hz / "+channels+" 声道 / "+bits+" bit → 自动重采样";capturing=true;status="正在采集并发送附近音乐";}
                 public void samples(float[] stereo,int rate){buffer.offer(stereo,rate);}
-            });}
+            };
+                java.util.function.BooleanSupplier running=()->!closed&&!Thread.currentThread().isInterrupted();
+                if(selection.global())captureBackend.capture(id,running,sink);
+                else {
+                    try(ProcessTargetTracker tracker=new ProcessTargetTracker(selection.programs(),()->processSnapshot)){
+                        SelectedProcessCapture.capture(selection.programs(),running,sink,()->{targetSnapshot=tracker.get();return targetSnapshot;},captureBackend);
+                    }
+                }
+            }
             catch(InterruptedException ignored){Thread.currentThread().interrupt();}
             catch(Throwable e){status="设备暂不可用，2 秒后重试："+e.getMessage();System.err.println("[Plasmo System Music] "+e);}
             finally{capturing=false;buffer.clear();retryAtNanos=System.nanoTime()+2_000_000_000L;}
@@ -133,6 +158,22 @@ public final class MusicAddon implements ClientModInitializer,AddonInitializer {
         try{next.save(file);}catch(Exception e){displayStatus="保存失败："+e.getMessage();}
     }
     public synchronized void setEnabled(boolean value){Settings s=settings;update(new Settings(s.device(),value,s.volume(),s.stereo(),s.forceOpen()));GameControls.message(value?"音乐共享已开启（附近玩家）":"音乐共享已关闭");}
+    public synchronized void refreshProcesses(){
+        if(closed||!scanningProcesses.compareAndSet(false,true))return;
+        processScanStatus="正在扫描程序…";
+        if(processScanner==null||processScanner.isShutdown())processScanner=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"Musicshare-Process-Scan");t.setDaemon(true);return t;});
+        processScanner.execute(()->{try{
+            ProcessCatalog.Snapshot snapshot=ProcessCatalog.scan();
+            if(!closed){processSnapshot=snapshot;processScanStatus=snapshot.error().isEmpty()?"已扫描 "+snapshot.programs().size()+" 个程序 · 手动更新":snapshot.error();}
+        }finally{scanningProcesses.set(false);}});
+    }
+    public synchronized void setCaptureSelection(CaptureSelection next){
+        if(!captureSelection.equals(next)){
+            captureSelection=next;stopCapture();stopMusicStream();retryAtNanos=0;
+            try{next.save(captureFile);}catch(Exception error){displayStatus="保存程序选择失败："+error.getMessage();}
+        }
+    }
+    public String captureDescription(){return captureSelection.global()?"全局抓取（排除 Minecraft）":"指定程序（已选 "+captureSelection.programs().size()+" 个）";}
     public synchronized void updateEffects(EffectSettings next){
         effects=next;
         try{next.save(effectsFile);}catch(Exception e){displayStatus="音效保存失败："+e.getMessage();}
@@ -331,5 +372,5 @@ public final class MusicAddon implements ClientModInitializer,AddonInitializer {
         censorEnabled=false;censor.reset();monitorCensor.reset();
         recordMicrophone(null,false);
     }
-    @Override public void onAddonShutdown(){closed=true;previewActive=false;resetCensorPlayback();if(control!=null)control.shutdownNow();stopCapture();recordMicrophone(null,false);instance=null;}
+    @Override public void onAddonShutdown(){closed=true;previewActive=false;resetCensorPlayback();if(control!=null)control.shutdownNow();if(processScanner!=null)processScanner.shutdownNow();stopCapture();recordMicrophone(null,false);instance=null;}
 }

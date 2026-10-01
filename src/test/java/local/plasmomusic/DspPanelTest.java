@@ -32,7 +32,7 @@ public final class DspPanelTest {
         double hz=crossings*48000.0/9999;
         check(hz>205&&hz<235,"time stretching changes timing while preserving approximately 220 Hz pitch");
         short[] speech=new short[48000];System.arraycopy(dry,0,speech,0,dry.length);
-        StudioSettings ancestor=StudioSettings.defaults().select(StudioSettings.Style.ANCESTOR);
+        StudioSettings ancestor=StudioSettings.defaults().panel(new DspSettings(false,40,50,6,true,180,-9,DspSettings.Filter.LOW,2200,false,100,false,true));
         short[] output=new ChannelEffects().processVoice(speech,48000,false,ancestor);
         check(Arrays.equals(Arrays.copyOf(output,15360),Arrays.copyOf(speech,15360)),"ancestor preserves ordinary immediate voice before the delayed echo");
         check(rms(output,26000,34000)>rms(dry,12000,20000)*1.2,"ancestor low echo after speech is measurably louder than original voice");

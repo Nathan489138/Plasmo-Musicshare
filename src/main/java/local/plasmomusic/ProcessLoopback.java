@@ -6,7 +6,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Process-tree exclusion, Windows build 20348+. COM callbacks retained until native release. */
+/** Process-tree include/exclude, Windows build 20348+. COM callbacks retained until native release. */
 final class ProcessLoopback {
     interface Mmdev extends StdCallLibrary {
         Mmdev INSTANCE=Native.load("Mmdevapi",Mmdev.class);
@@ -40,17 +40,20 @@ final class ProcessLoopback {
             }
             return 0;
         };
-        Handler(int pid){
+        Handler(int pid,boolean include){
             vtable.setPointer(0,CallbackReference.getFunctionPointer(query));vtable.setPointer(Native.POINTER_SIZE,CallbackReference.getFunctionPointer(add));
             vtable.setPointer(2L*Native.POINTER_SIZE,CallbackReference.getFunctionPointer(release));vtable.setPointer(3L*Native.POINTER_SIZE,CallbackReference.getFunctionPointer(completed));object.setPointer(0,vtable);
-            args.clear();args.setInt(0,1);args.setInt(4,pid);args.setInt(8,1);
+            args.clear();args.setInt(0,1);args.setInt(4,pid);args.setInt(8,include?0:1);
             variant.clear();variant.setShort(0,(short)65);variant.setInt(8,12);variant.setPointer(16,args);
         }
         synchronized void abandon(){abandoned=true;if(done.getCount()==0){Wasapi.release(client);client=null;}}
     }
     static Pointer activate(int excludePid)throws InterruptedException {
+        return activate(excludePid,false);
+    }
+    static Pointer activate(int pid,boolean include)throws InterruptedException {
         if(Native.POINTER_SIZE!=8)throw new IllegalStateException("应用隔离模式需要 64 位 Java");
-        Handler h=new Handler(excludePid);LIVE.add(h);PointerByReference operation=new PointerByReference();
+        Handler h=new Handler(pid,include);LIVE.add(h);PointerByReference operation=new PointerByReference();
         try {
             Wasapi.check(Mmdev.INSTANCE.ActivateAudioInterfaceAsync(new WString("VAD\\Process_Loopback"),
                 Wasapi.guid("1cb9ad4c-dbfa-4c32-b178-c2f568a703b2"),h.variant,h.object,operation),"应用隔离需要 Windows 11 / build 20348+");

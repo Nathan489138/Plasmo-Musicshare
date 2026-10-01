@@ -191,7 +191,7 @@ public class MixTest {
         app.settings=new Settings("exclude-game",true,50,true);app.buffer.clear();app.buffer.offer(music,48000);
         ChannelEffects reference=new ChannelEffects();short[] voiceFx=reference.process(spoken,48000,false,StudioSettings.Style.ROBOT,100,StudioSettings.Room.OFF,25);
         process.invoke(capture,device,activation,ClientActivation.Result.ACTIVATED,spoken,ctor.newInstance(device,spoken));
-        check(java.util.stream.IntStream.range(0,960).allMatch(i->encodedSamples.get()[i*2]==4096+voiceFx[i]),"voice character effects change microphone without changing music samples");
+        check(java.util.stream.IntStream.range(0,960).allMatch(i->encodedSamples.get()[i*2]==Math.max(-32768,Math.min(32767,4096+voiceFx[i]))),"voice character effects change microphone without changing music samples; full-scale sums retain PCM limiting");
         app.settings=new Settings("exclude-game",false,50,true);
         app.studio=StudioSettings.defaults().voice(StudioSettings.Style.NONE,100,StudioSettings.Room.STUDIO,35);
         short[] impulse=new short[960];impulse[0]=7000;
